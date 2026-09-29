@@ -6,6 +6,7 @@
 
 namespace reactor {
 
+/// 获取当前系统时间的 Timestamp
 Timestamp Timestamp::now() {
   using namespace std::chrono;
   auto now = system_clock::now();
@@ -13,6 +14,7 @@ Timestamp Timestamp::now() {
   return Timestamp(micros);
 }
 
+/// 格式化为 "秒.微秒" 字符串
 std::string Timestamp::toString() const {
   char buf[32];
   int64_t seconds = microSecondsSinceEpoch_ / kMicroSecondsPerSecond;

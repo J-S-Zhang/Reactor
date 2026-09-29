@@ -10,6 +10,7 @@
 
 namespace reactor {
 
+/// 对 POSIX 线程的封装：创建、命名、join
 class Thread : NonCopyable {
  public:
   using ThreadFunc = std::function<void()>;
@@ -27,12 +28,12 @@ class Thread : NonCopyable {
  private:
   static void* startThread(void* obj);
 
-  bool started_;
-  bool joined_;
-  pthread_t pthreadId_;
-  pid_t tid_;
-  ThreadFunc func_;
-  std::string name_;
+  bool started_;           ///< 是否已调用 start
+  bool joined_;            ///< 是否已 join，避免重复 join
+  pthread_t pthreadId_;    ///< pthread 句柄
+  pid_t tid_;              ///< Linux 内核线程 ID（gettid）
+  ThreadFunc func_;        ///< 线程入口要执行的函数
+  std::string name_;       ///< 线程名（用于调试与 pthread_setname_np）
 };
 
 }  // namespace reactor

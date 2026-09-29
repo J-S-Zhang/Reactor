@@ -10,26 +10,28 @@
 #include "base/Logger.h"
 #include "net/InetAddress.h"
 
-namespace reactor {
-
+/// 关闭 fd
 Socket::~Socket() {
   if (sockfd_ >= 0) {
     ::close(sockfd_);
   }
 }
 
+/// bind 到本地地址
 void Socket::bindAddress(const InetAddress& addr) {
   if (::bind(sockfd_, addr.getSockAddr(), sizeof(struct sockaddr_in)) < 0) {
     LOG_FATAL("bind failed");
   }
 }
 
+/// 开始监听
 void Socket::listen() {
   if (::listen(sockfd_, SOMAXCONN) < 0) {
     LOG_FATAL("listen failed");
   }
 }
 
+/// 接受新连接（非阻塞 + CLOEXEC）
 int Socket::accept(InetAddress* peeraddr) {
   struct sockaddr_in addr;
   std::memset(&addr, 0, sizeof addr);
@@ -42,6 +44,7 @@ int Socket::accept(InetAddress* peeraddr) {
   return connfd;
 }
 
+/// 半关闭写端
 void Socket::shutdownWrite() {
   if (::shutdown(sockfd_, SHUT_WR) < 0) {
     LOG_ERROR("shutdownWrite failed");
@@ -78,6 +81,7 @@ void Socket::setNonBlocking() {
   ::fcntl(sockfd_, F_SETFL, flags);
 }
 
+/// 创建 TCP 非阻塞 socket
 int Socket::createNonblockingTcp() {
   int sockfd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
                         IPPROTO_TCP);

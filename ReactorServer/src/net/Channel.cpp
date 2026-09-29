@@ -24,6 +24,7 @@ Channel::~Channel() {
   }
 }
 
+/// 根据 revents 依次触发读/写/关闭/错误回调
 void Channel::handleEvent(Timestamp receiveTime) {
   if (revents_ & POLLNVAL) {
     LOG_WARN("Channel::handleEvent() POLLNVAL fd=%d", fd_);
@@ -67,8 +68,10 @@ void Channel::disableAll() {
   update();
 }
 
+/// 通知 EventLoop 更新 poller 中的 interest
 void Channel::update() { loop_->updateChannel(this); }
 
+/// 从 poller 移除
 void Channel::remove() { loop_->removeChannel(this); }
 
 }  // namespace reactor

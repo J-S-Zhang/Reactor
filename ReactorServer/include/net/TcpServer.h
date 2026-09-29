@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <map>
+#include <memory>
 #include <string>
 
 #include "base/NonCopyable.h"
@@ -14,6 +15,7 @@ namespace reactor {
 
 class EventLoop;
 
+/// TCP 服务端：Acceptor + 连接表 + 业务线程池
 class TcpServer : NonCopyable {
  public:
   using ConnectionCallback = TcpConnection::ConnectionCallback;
@@ -48,21 +50,21 @@ class TcpServer : NonCopyable {
   void removeConnection(const TcpConnectionPtr& conn);
   void removeConnectionInLoop(const TcpConnectionPtr& conn);
 
-  EventLoop* loop_;
-  const std::string name_;
-  Acceptor acceptor_;
-  std::unique_ptr<ThreadPool> threadPool_;
-  std::unique_ptr<ThreadPool> workerPool_;
+  EventLoop* loop_;                    ///< IO 事件循环
+  const std::string name_;             ///< 服务名
+  Acceptor acceptor_;                  ///< 监听器
+  std::unique_ptr<ThreadPool> threadPool_;   ///< 预留 IO 线程池（Main-Sub）
+  std::unique_ptr<ThreadPool> workerPool_;   ///< 业务工作线程池
   ConnectionCallback connectionCallback_;
   MessageCallback messageCallback_;
   WriteCompleteCallback writeCompleteCallback_;
-  std::atomic<int> started_;
-  int nextConnId_;
-  int idleTimeoutSeconds_;
-  int workerThreadNum_;
+  std::atomic<int> started_;           ///< 是否已 start（0/1）
+  int nextConnId_;                     ///< 连接自增 id
+  int idleTimeoutSeconds_;             ///< 连接空闲超时秒数，0 表示不启用
+  int workerThreadNum_;                ///< worker 线程数，0 表示业务在 IO 线程
 
   using ConnectionMap = std::map<std::string, TcpConnectionPtr>;
-  ConnectionMap connections_;
+  ConnectionMap connections_;          ///< 连接名 -> TcpConnection
 };
 
 }  // namespace reactor

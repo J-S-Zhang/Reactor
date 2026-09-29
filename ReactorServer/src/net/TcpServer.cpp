@@ -23,6 +23,7 @@ TcpServer::TcpServer(EventLoop* loop, const InetAddress& listenAddr,
       [this](int fd, const InetAddress& peer) { newConnection(fd, peer); });
 }
 
+/// 析构时清理所有连接（须在 IO 线程）
 TcpServer::~TcpServer() {
   loop_->assertInLoopThread();
   for (auto& item : connections_) {
@@ -32,10 +33,12 @@ TcpServer::~TcpServer() {
   }
 }
 
+/// 预留：多 IO 线程时使用
 void TcpServer::setThreadNum(int numThreads) {
   (void)numThreads;
 }
 
+/// 启动 worker 池并在 IO 线程 begin listen
 void TcpServer::start() {
   if (started_.exchange(1) == 0) {
     if (workerThreadNum_ > 0) {
@@ -49,6 +52,7 @@ void TcpServer::start() {
   }
 }
 
+/// 创建 TcpConnection，设置回调并 connectEstablished
 void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr) {
   loop_->assertInLoopThread();
   char buf[64];
@@ -78,6 +82,7 @@ void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr) {
   conn->connectEstablished();
 }
 
+/// 线程安全：在 loop 中移除连接
 void TcpServer::removeConnection(const TcpConnectionPtr& conn) {
   loop_->runInLoop([this, conn] { removeConnectionInLoop(conn); });
 }

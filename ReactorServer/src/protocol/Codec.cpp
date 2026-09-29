@@ -25,6 +25,7 @@ uint16_t Protocol::hostToNetType(uint16_t type) { return htons(type); }
 
 uint16_t Protocol::netToHostType(uint16_t type) { return ntohs(type); }
 
+/// 循环从 buf 解析完整帧，不足一帧则等待更多数据
 void Codec::onMessage(const TcpConnectionPtr& conn, Buffer* buf, Timestamp t) {
   while (buf->readableBytes() >= Protocol::kHeaderLen) {
     int32_t len = asInt32(buf->peek());
@@ -48,6 +49,7 @@ void Codec::onMessage(const TcpConnectionPtr& conn, Buffer* buf, Timestamp t) {
   }
 }
 
+/// 构造 Length+Type+Data 二进制串
 std::string Codec::encode(uint16_t type, const std::string& body) {
   int32_t len = static_cast<int32_t>(Protocol::kTypeFieldLen + body.size());
   int32_t be32 = htonl(len);

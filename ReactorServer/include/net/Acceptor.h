@@ -11,6 +11,7 @@ namespace reactor {
 
 class EventLoop;
 
+/// 在 listen fd 上 accept 新 TCP 连接
 class Acceptor : NonCopyable {
  public:
   using NewConnectionCallback =
@@ -29,11 +30,11 @@ class Acceptor : NonCopyable {
  private:
   void handleRead();
 
-  EventLoop* loop_;
-  Socket acceptSocket_;
-  Channel acceptChannel_;
-  bool listenning_;
-  NewConnectionCallback newConnectionCallback_;
+  EventLoop* loop_;                         ///< 所属 EventLoop
+  Socket acceptSocket_;                     ///< 监听 socket
+  Channel acceptChannel_;                   ///< 监听 fd 的 Channel
+  bool listenning_;                         ///< 是否已 listen 并注册读事件
+  NewConnectionCallback newConnectionCallback_;  ///< 新连接回调（通常交给 TcpServer）
 };
 
 }  // namespace reactor

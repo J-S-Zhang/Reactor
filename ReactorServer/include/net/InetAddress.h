@@ -5,6 +5,7 @@
 
 namespace reactor {
 
+/// IPv4 地址封装（sockaddr_in）
 class InetAddress {
  public:
   explicit InetAddress(uint16_t port = 0, bool loopbackOnly = false);
@@ -22,7 +23,7 @@ class InetAddress {
   void setSockAddrInet(const struct sockaddr_in& addr) { addr_ = addr; }
 
  private:
-  struct sockaddr_in addr_;
+  struct sockaddr_in addr_;  ///< 底层 IPv4 地址结构
 };
 
 }  // namespace reactor

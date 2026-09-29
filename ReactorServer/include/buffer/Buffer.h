@@ -7,11 +7,12 @@
 
 namespace reactor {
 
+/// 网络读写动态缓冲区：读/写索引 + 可选前预留区，支持粘包拆包
 class Buffer {
  public:
-  static const size_t kInitialSize = 1024;
-  static const size_t kCheapPrepend = 8;
-  static const size_t kMaxPrepend = 16;
+  static const size_t kInitialSize = 1024;   ///< 默认可写区初始大小
+  static const size_t kCheapPrepend = 8;     ///< 默认前预留字节（便于追加长度头）
+  static const size_t kMaxPrepend = 16;      ///< 前预留上限（预留扩展用）
 
   explicit Buffer(size_t initialSize = kInitialSize)
       : buffer_(kCheapPrepend + initialSize),
@@ -24,37 +25,16 @@ class Buffer {
 
   const char* peek() const { return begin() + readerIndex_; }
 
-  void retrieve(size_t len) {
-    if (len < readableBytes()) {
-      readerIndex_ += len;
-    } else {
-      retrieveAll();
-    }
-  }
+  void retrieve(size_t len);
+  void retrieveAll();
 
-  void retrieveAll() {
-    readerIndex_ = kCheapPrepend;
-    writerIndex_ = kCheapPrepend;
-  }
+  std::string retrieveAsString(size_t len);
+  std::string retrieveAllAsString();
 
-  std::string retrieveAsString(size_t len) {
-    std::string result(peek(), len);
-    retrieve(len);
-    return result;
-  }
-
-  std::string retrieveAllAsString() {
-    return retrieveAsString(readableBytes());
-  }
-
-  void append(const char* data, size_t len) {
-    ensureWritableBytes(len);
-    std::memcpy(beginWrite(), data, len);
-    hasWritten(len);
-  }
-
+  void append(const char* data, size_t len);
   void append(const std::string& str) { append(str.data(), str.size()); }
 
+  /// 从 fd 读入数据（readv 优化），失败时 *savedErrno 为 errno
   ssize_t readFd(int fd, int* savedErrno);
 
   char* beginWrite() { return begin() + writerIndex_; }
@@ -62,12 +42,9 @@ class Buffer {
 
   void hasWritten(size_t len) { writerIndex_ += len; }
 
-  void ensureWritableBytes(size_t len) {
-    if (writableBytes() < len) {
-      makeSpace(len);
-    }
-  }
+  void ensureWritableBytes(size_t len);
 
+  /// 窥视网络序 int32 并转主机序
   int32_t peekInt32() const;
   void appendInt32(int32_t value);
 
@@ -75,21 +52,12 @@ class Buffer {
   char* begin() { return &*buffer_.begin(); }
   const char* begin() const { return &*buffer_.begin(); }
 
-  void makeSpace(size_t len) {
-    if (writableBytes() + prependableBytes() < kCheapPrepend + len) {
-      buffer_.resize(writerIndex_ + len);
-    } else {
-      size_t readable = readableBytes();
-      std::copy(begin() + readerIndex_, begin() + writerIndex_,
-                begin() + kCheapPrepend);
-      readerIndex_ = kCheapPrepend;
-      writerIndex_ = readerIndex_ + readable;
-    }
-  }
+  /// 扩容或前移可读数据以腾出 writable 空间
+  void makeSpace(size_t len);
 
-  std::vector<char> buffer_;
-  size_t readerIndex_;
-  size_t writerIndex_;
+  std::vector<char> buffer_;  ///< 底层字节存储
+  size_t readerIndex_;        ///< 可读数据起始下标
+  size_t writerIndex_;        ///< 可写数据起始下标
 };
 
 }  // namespace reactor

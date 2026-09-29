@@ -17,6 +17,7 @@ class EventLoop;
 class Socket;
 class ThreadPool;
 
+/// 单条 TCP 连接：读写缓冲、状态机、可选业务线程池与空闲超时
 class TcpConnection : NonCopyable,
                       public std::enable_shared_from_this<TcpConnection> {
  public:
@@ -74,26 +75,26 @@ class TcpConnection : NonCopyable,
   void forceCloseInLoop();
   void setState(StateE s) { state_ = s; }
 
-  EventLoop* loop_;
-  const std::string name_;
-  std::atomic<StateE> state_;
-  bool reading_;
+  EventLoop* loop_;              ///< 固定在此 IO 线程处理 channel
+  const std::string name_;       ///< 连接名（日志与 map 键）
+  std::atomic<StateE> state_;    ///< 连接状态
+  bool reading_;                 ///< 是否允许读（预留）
 
   std::unique_ptr<Socket> socket_;
   std::unique_ptr<Channel> channel_;
   const InetAddress localAddr_;
   const InetAddress peerAddr_;
 
-  Buffer inputBuffer_;
-  Buffer outputBuffer_;
+  Buffer inputBuffer_;           ///< 读入的未消费数据
+  Buffer outputBuffer_;          ///< 待发送数据
 
   ConnectionCallback connectionCallback_;
   MessageCallback messageCallback_;
   CloseCallback closeCallback_;
   WriteCompleteCallback writeCompleteCallback_;
 
-  ThreadPool* threadPool_;
-  TimerId idleTimer_;
+  ThreadPool* threadPool_;        ///< 非空则 message 回调在工作线程执行
+  TimerId idleTimer_;            ///< 空闲超时定时器
 };
 
 }  // namespace reactor

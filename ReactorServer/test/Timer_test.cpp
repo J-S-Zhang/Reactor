@@ -1,3 +1,5 @@
+/// Timer 重复间隔与 restart 行为测试
+#include <cassert>
 #include <iostream>
 
 #include "base/Timestamp.h"

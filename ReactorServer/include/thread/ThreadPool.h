@@ -10,6 +10,7 @@
 
 namespace reactor {
 
+/// 固定数量工作线程 + 任务队列，用于业务与 IO 解耦
 class ThreadPool : NonCopyable {
  public:
   using Task = std::function<void()>;
@@ -28,10 +29,10 @@ class ThreadPool : NonCopyable {
  private:
   void workerLoop();
 
-  std::string name_;
-  TaskQueue<Task> queue_;
-  std::vector<std::unique_ptr<Thread>> threads_;
-  bool running_;
+  std::string name_;                              ///< 线程名前缀
+  TaskQueue<Task> queue_;                         ///< 待执行任务
+  std::vector<std::unique_ptr<Thread>> threads_;  ///< 工作线程列表
+  bool running_;                                  ///< 是否已 start 且未 stop
 };
 
 }  // namespace reactor

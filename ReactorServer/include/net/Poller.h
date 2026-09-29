@@ -10,6 +10,7 @@ namespace reactor {
 class Channel;
 class EventLoop;
 
+/// IO 多路复用抽象基类
 class Poller {
  public:
   using ChannelList = std::vector<Channel*>;
@@ -27,8 +28,8 @@ class Poller {
 
  protected:
   using ChannelMap = std::map<int, Channel*>;
-  EventLoop* ownerLoop_;
-  ChannelMap channels_;
+  EventLoop* ownerLoop_;   ///< 所属 EventLoop
+  ChannelMap channels_;    ///< fd -> Channel 映射
 };
 
 }  // namespace reactor

@@ -8,7 +8,7 @@
 
 namespace reactor {
 
-// 简单时间轮，可用于粗粒度延迟任务（秒级）
+/// 简单时间轮：粗粒度（如秒级）延迟任务，tick 推进槽位
 class TimeWheel : NonCopyable {
  public:
   using Task = std::function<void()>;
@@ -19,8 +19,8 @@ class TimeWheel : NonCopyable {
   void addTask(Task task, size_t delaySlots);
 
  private:
-  size_t currentSlot_;
-  std::vector<std::list<Task>> slots_;
+  size_t currentSlot_;                 ///< 当前槽位下标
+  std::vector<std::list<Task>> slots_; ///< 每个槽位上的任务链表
 };
 
 }  // namespace reactor

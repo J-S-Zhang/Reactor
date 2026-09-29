@@ -15,6 +15,7 @@ EventLoopThread::~EventLoopThread() {
   }
 }
 
+/// 启动线程并阻塞直到子线程 EventLoop 创建完成
 EventLoop* EventLoopThread::startLoop() {
   thread_ = std::make_unique<Thread>([this] { threadFunc(); }, "EventLoop");
   thread_->start();
@@ -29,6 +30,7 @@ EventLoop* EventLoopThread::startLoop() {
   return loop;
 }
 
+/// 子线程：构造 EventLoop 并 loop()，退出后清空 loop_
 void EventLoopThread::threadFunc() {
   EventLoop loop;
   {

@@ -9,8 +9,10 @@
 
 namespace reactor {
 
+/// 日志级别，数值越大越严重
 enum LogLevel { TRACE, DEBUG, INFO, WARN, ERROR, FATAL };
 
+/// 异步日志：前台格式化入队，后台线程写 stdout/文件
 class AsyncLogger : NonCopyable {
  public:
   static AsyncLogger& instance();
@@ -24,11 +26,11 @@ class AsyncLogger : NonCopyable {
   ~AsyncLogger();
   void backendLoop();
 
-  LogLevel level_;
-  std::string logFile_;
-  TaskQueue<std::string> queue_;
-  std::unique_ptr<Thread> backendThread_;
-  bool running_;
+  LogLevel level_;                      ///< 低于此级别的日志被丢弃
+  std::string logFile_;                 ///< 非空则追加写入该文件
+  TaskQueue<std::string> queue_;        ///< 待输出的日志行队列
+  std::unique_ptr<Thread> backendThread_;  ///< 消费队列的后台线程
+  bool running_;                        ///< 后台循环是否继续
 };
 
 #define LOG_TRACE(fmt, ...) \

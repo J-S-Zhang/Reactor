@@ -9,6 +9,7 @@
 
 namespace reactor {
 
+/// 按 Protocol 从 Buffer 拆包/组包
 class Codec {
  public:
   using MessageCallback =
@@ -23,7 +24,7 @@ class Codec {
   static std::string encode(uint16_t type, const std::string& body);
 
  private:
-  MessageCallback messageCallback_;
+  MessageCallback messageCallback_;  ///< 收到完整一帧后的业务回调
 };
 
 }  // namespace reactor

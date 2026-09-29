@@ -31,6 +31,7 @@ EventLoop* EventLoop::getEventLoopOfCurrentThread() {
   return t_loopInThisThread;
 }
 
+/// 初始化 poller、timer、wakeup channel，绑定到当前线程
 EventLoop::EventLoop()
     : looping_(false),
       quit_(false),
@@ -56,6 +57,7 @@ EventLoop::~EventLoop() {
   t_loopInThisThread = nullptr;
 }
 
+/// Reactor 主循环：poll → 处理事件 → 执行 pending 任务
 void EventLoop::loop() {
   assertInLoopThread();
   looping_ = true;
@@ -71,6 +73,7 @@ void EventLoop::loop() {
   looping_ = false;
 }
 
+/// 请求退出；若在其他线程调用则 wakeup
 void EventLoop::quit() {
   quit_ = true;
   if (!isInLoopThread()) {
@@ -78,6 +81,7 @@ void EventLoop::quit() {
   }
 }
 
+/// 在 IO 线程立即执行，否则 queueInLoop
 void EventLoop::runInLoop(Functor cb) {
   if (isInLoopThread()) {
     cb();
@@ -86,6 +90,7 @@ void EventLoop::runInLoop(Functor cb) {
   }
 }
 
+/// 将回调放入 pending 队列并必要时 wakeup
 void EventLoop::queueInLoop(Functor cb) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -114,6 +119,7 @@ void EventLoop::assertInLoopThread() {
   }
 }
 
+/// 向 eventfd 写 8 字节，使 epoll_wait 返回
 void EventLoop::wakeup() {
   uint64_t one = 1;
   ssize_t n = ::write(wakeupFd_, &one, sizeof one);
@@ -122,6 +128,7 @@ void EventLoop::wakeup() {
   }
 }
 
+/// 读 eventfd，清空计数
 void EventLoop::handleRead() {
   uint64_t one = 1;
   ssize_t n = ::read(wakeupFd_, &one, sizeof one);
@@ -130,6 +137,7 @@ void EventLoop::handleRead() {
   }
 }
 
+/// 批量执行其他线程投递的回调
 void EventLoop::doPendingFunctors() {
   std::vector<Functor> functors;
   callingPendingFunctors_ = true;

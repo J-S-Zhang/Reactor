@@ -28,6 +28,7 @@ EpollPoller::EpollPoller(EventLoop* loop)
 
 EpollPoller::~EpollPoller() { ::close(epollfd_); }
 
+/// 等待就绪事件并填充 activeChannels
 Timestamp EpollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
   int numEvents = ::epoll_wait(epollfd_, &*events_.begin(),
                                static_cast<int>(events_.size()), timeoutMs);
@@ -48,6 +49,7 @@ Timestamp EpollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
   return now;
 }
 
+/// 从 epoll_event.data.ptr 还原 Channel 并设置 revents
 void EpollPoller::fillActiveChannels(int numEvents,
                                      ChannelList* activeChannels) const {
   for (int i = 0; i < numEvents; ++i) {
@@ -57,6 +59,7 @@ void EpollPoller::fillActiveChannels(int numEvents,
   }
 }
 
+/// 根据 Channel 状态 ADD/MOD/DEL
 void EpollPoller::updateChannel(Channel* channel) {
   const int index = channel->index();
   if (index == kNew || index == kDeleted) {
@@ -83,6 +86,7 @@ void EpollPoller::updateChannel(Channel* channel) {
   }
 }
 
+/// 从 epoll 与 channels_ 移除
 void EpollPoller::removeChannel(Channel* channel) {
   int fd = channel->fd();
   if (channels_.find(fd) == channels_.end() || channels_[fd] != channel) {
@@ -100,6 +104,7 @@ void EpollPoller::removeChannel(Channel* channel) {
   channel->setIndex(kNew);
 }
 
+/// 调用 epoll_ctl，统一开启 EPOLLET
 void EpollPoller::update(int operation, Channel* channel) {
   struct epoll_event event {};
   std::memset(&event, 0, sizeof event);

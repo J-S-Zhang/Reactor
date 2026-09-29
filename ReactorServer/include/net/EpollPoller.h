@@ -8,6 +8,7 @@ struct epoll_event;
 
 namespace reactor {
 
+/// epoll 实现的 Poller（边缘触发 ET）
 class EpollPoller : public Poller {
  public:
   explicit EpollPoller(EventLoop* loop);
@@ -23,8 +24,8 @@ class EpollPoller : public Poller {
   void fillActiveChannels(int numEvents, ChannelList* activeChannels) const;
   void update(int operation, Channel* channel);
 
-  int epollfd_;
-  std::vector<struct epoll_event> events_;
+  int epollfd_;                           ///< epoll 实例 fd
+  std::vector<struct epoll_event> events_; ///< epoll_wait 结果缓冲
 };
 
 }  // namespace reactor

@@ -1,3 +1,6 @@
+/**
+ * 聊天室示例：监听 9090，广播聊天消息（kMsgChat=1，加入提示 kMsgJoin=2）。
+ */
 #include <memory>
 #include <mutex>
 #include <set>
@@ -13,6 +16,7 @@ namespace {
 constexpr uint16_t kMsgChat = 1;
 constexpr uint16_t kMsgJoin = 2;
 
+/// 维护在线连接并广播协议包
 class ChatRoom {
  public:
   void add(const reactor::TcpConnectionPtr& conn) {
@@ -41,8 +45,8 @@ class ChatRoom {
     }
   }
 
-  std::mutex mutex_;
-  std::set<reactor::TcpConnectionPtr> conns_;
+  std::mutex mutex_;                              ///< 保护 conns_
+  std::set<reactor::TcpConnectionPtr> conns_;   ///< 当前在线连接
 };
 
 }  // namespace

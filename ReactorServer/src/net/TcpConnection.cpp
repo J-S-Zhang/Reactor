@@ -11,6 +11,7 @@
 
 namespace reactor {
 
+/// 绑定 channel 回调，设置 keepalive
 TcpConnection::TcpConnection(EventLoop* loop, const std::string& name,
                              int sockfd, const InetAddress& localAddr,
                              const InetAddress& peerAddr)
@@ -35,6 +36,7 @@ TcpConnection::~TcpConnection() {
   LOG_DEBUG("TcpConnection::~TcpConnection() %s", name_.c_str());
 }
 
+/// 线程安全发送字符串（marshal 到 IO 线程）
 void TcpConnection::send(const std::string& message) {
   if (state_ == kConnected) {
     if (loop_->isInLoopThread()) {
@@ -45,6 +47,7 @@ void TcpConnection::send(const std::string& message) {
   }
 }
 
+/// 线程安全发送 Buffer 内容
 void TcpConnection::send(Buffer* buf) {
   if (state_ == kConnected) {
     if (loop_->isInLoopThread()) {
@@ -63,6 +66,7 @@ void TcpConnection::sendInLoop(const std::string& message) {
   sendInLoop(message.data(), message.size());
 }
 
+/// 在 IO 线程写 socket；写不完则放入 outputBuffer_ 并 enableWriting
 void TcpConnection::sendInLoop(const void* data, size_t len) {
   loop_->assertInLoopThread();
   ssize_t nwrote = 0;
@@ -102,6 +106,7 @@ void TcpConnection::sendInLoop(const void* data, size_t len) {
   }
 }
 
+/// 优雅关闭：写尽 output 后 shutdown 写端
 void TcpConnection::shutdown() {
   if (state_ == kConnected) {
     setState(kDisconnecting);
@@ -116,6 +121,7 @@ void TcpConnection::shutdownInLoop() {
   }
 }
 
+/// 强制关闭连接
 void TcpConnection::forceClose() {
   if (state_ == kConnected || state_ == kDisconnecting) {
     setState(kDisconnecting);
@@ -133,6 +139,7 @@ void TcpConnection::forceCloseInLoop() {
   }
 }
 
+/// accept 完成后：注册读事件并触发 connectionCallback
 void TcpConnection::connectEstablished() {
   loop_->assertInLoopThread();
   setState(kConnected);
@@ -142,6 +149,7 @@ void TcpConnection::connectEstablished() {
   }
 }
 
+/// 从 TcpServer 移除时：取消定时器并从 poller 删除 channel
 void TcpConnection::connectDestroyed() {
   loop_->assertInLoopThread();
   if (state_ == kConnected) {
@@ -155,6 +163,7 @@ void TcpConnection::connectDestroyed() {
   channel_->remove();
 }
 
+/// ET：读尽 socket 数据，再触发 messageCallback（可进线程池）
 void TcpConnection::handleRead(Timestamp receiveTime) {
   loop_->assertInLoopThread();
   int savedErrno = 0;
@@ -189,6 +198,7 @@ void TcpConnection::handleRead(Timestamp receiveTime) {
   }
 }
 
+/// 继续发送 outputBuffer_ 中的数据
 void TcpConnection::handleWrite() {
   loop_->assertInLoopThread();
   if (channel_->isWriting()) {
@@ -214,6 +224,7 @@ void TcpConnection::handleWrite() {
   }
 }
 
+/// 对端关闭或 read 返回 0
 void TcpConnection::handleClose() {
   loop_->assertInLoopThread();
   setState(kDisconnected);
@@ -227,6 +238,7 @@ void TcpConnection::handleError() {
   LOG_ERROR("TcpConnection::handleError fd=%d err=%d", channel_->fd(), err);
 }
 
+/// 注册重复定时器，超时 forceClose
 void TcpConnection::setIdleTimeout(int seconds) {
   if (seconds <= 0) return;
   Timestamp when(

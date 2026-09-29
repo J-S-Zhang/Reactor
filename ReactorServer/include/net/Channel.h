@@ -9,6 +9,7 @@ namespace reactor {
 
 class EventLoop;
 
+/// 封装 fd 及其关注的事件与回调，Reactor 中的「事件处理器」
 class Channel : NonCopyable {
  public:
   using EventCallback = std::function<void()>;
@@ -50,11 +51,11 @@ class Channel : NonCopyable {
   void update();
   void remove();
 
-  EventLoop* loop_;
-  const int fd_;
-  int events_;
-  int revents_;
-  int index_;
+  EventLoop* loop_;              ///< 所属 EventLoop
+  const int fd_;                 ///< 监听的文件描述符
+  int events_;                   ///< 希望监听的事件（POLLIN/OUT 等）
+  int revents_;                  ///< poller 返回的就绪事件
+  int index_;                    ///< 在 EpollPoller 中的状态（new/added/deleted）
 
   ReadEventCallback readCallback_;
   EventCallback writeCallback_;

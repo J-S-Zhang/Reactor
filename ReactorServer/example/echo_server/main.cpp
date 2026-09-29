@@ -1,3 +1,6 @@
+/**
+ * Echo 示例：监听 8080，按 Codec 协议回显消息体。
+ */
 #include <memory>
 
 #include "base/Logger.h"

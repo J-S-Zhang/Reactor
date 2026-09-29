@@ -10,12 +10,14 @@
 namespace reactor {
 
 namespace {
+/// 传给 pthread 入口的参数包
 struct ThreadData {
   ThreadFunc func;
   std::string name;
   pid_t* tid;
 };
 
+/// pthread 实际入口：设置 tid/线程名后执行用户函数
 void* threadRoutine(void* arg) {
   auto* data = static_cast<ThreadData*>(arg);
   *data->tid = gettid();
@@ -28,6 +30,7 @@ void* threadRoutine(void* arg) {
 }
 }  // namespace
 
+/// 构造线程对象，尚未启动
 Thread::Thread(ThreadFunc func, const std::string& name)
     : started_(false),
       joined_(false),
@@ -36,12 +39,14 @@ Thread::Thread(ThreadFunc func, const std::string& name)
       func_(std::move(func)),
       name_(name) {}
 
+/// 若已 start 但未 join，则 detach 避免泄漏
 Thread::~Thread() {
   if (started_ && !joined_) {
     pthread_detach(pthreadId_);
   }
 }
 
+/// 创建并启动 pthread
 void Thread::start() {
   if (started_) return;
   started_ = true;
@@ -53,6 +58,7 @@ void Thread::start() {
   }
 }
 
+/// 等待线程结束
 void Thread::join() {
   if (!started_ || joined_) return;
   joined_ = true;

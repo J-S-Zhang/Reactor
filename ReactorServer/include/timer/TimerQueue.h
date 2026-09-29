@@ -13,6 +13,7 @@ namespace reactor {
 class EventLoop;
 class Channel;
 
+/// 基于 timerfd 的定时器集合，按到期时间排序，挂到 EventLoop
 class TimerQueue : NonCopyable {
  public:
   using TimerCallback = Timer::TimerCallback;
@@ -36,13 +37,13 @@ class TimerQueue : NonCopyable {
 
   bool insert(Timer* timer);
 
-  EventLoop* loop_;
-  const int timerfd_;
-  std::unique_ptr<Channel> timerfdChannel_;
-  TimerList timers_;
-  ActiveTimerSet activeTimers_;
-  bool callingExpiredTimers_;
-  ActiveTimerSet cancelingTimers_;
+  EventLoop* loop_;                         ///< 所属事件循环
+  const int timerfd_;                       ///< Linux timerfd 描述符
+  std::unique_ptr<Channel> timerfdChannel_; ///< 将 timerfd 可读事件纳入 epoll
+  TimerList timers_;                        ///< 按到期时间排序的定时器
+  ActiveTimerSet activeTimers_;             ///< 便于按 Timer* 查找与取消
+  bool callingExpiredTimers_;               ///< 是否正在执行到期回调（重入保护）
+  ActiveTimerSet cancelingTimers_;          ///< 回调期间待取消的定时器（预留）
 };
 
 using TimerId = Timer*;

@@ -6,6 +6,7 @@ namespace reactor {
 
 class InetAddress;
 
+/// TCP socket RAII 与常用选项封装
 class Socket : NonCopyable {
  public:
   explicit Socket(int sockfd) : sockfd_(sockfd) {}
@@ -27,7 +28,7 @@ class Socket : NonCopyable {
   static int createNonblockingTcp();
 
  private:
-  const int sockfd_;
+  const int sockfd_;  ///< 内核 socket 描述符，析构时 close
 };
 
 }  // namespace reactor

@@ -5,6 +5,7 @@
 
 namespace reactor {
 
+/// 创建非阻塞 listen socket 并 bind
 Acceptor::Acceptor(EventLoop* loop, const InetAddress& listenAddr,
                    bool reuseport)
     : loop_(loop),
@@ -22,6 +23,7 @@ Acceptor::~Acceptor() {
   acceptChannel_.remove();
 }
 
+/// 在 IO 线程开始 listen 并关注可读（有新连接）
 void Acceptor::listen() {
   loop_->assertInLoopThread();
   listenning_ = true;
@@ -29,6 +31,7 @@ void Acceptor::listen() {
   acceptChannel_.enableReading();
 }
 
+/// ET 模式：循环 accept 直到 EAGAIN
 void Acceptor::handleRead() {
   loop_->assertInLoopThread();
   while (true) {
