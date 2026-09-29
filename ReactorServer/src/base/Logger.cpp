@@ -10,7 +10,8 @@
 namespace reactor {
 
 namespace {
-/// 日志级别转字符串
+/// 做什么：LogLevel 转字符串。
+/// 项目角色：日志行 human-readable 级别字段。
 const char* levelName(LogLevel level) {
   switch (level) {
     case TRACE:
@@ -31,34 +32,40 @@ const char* levelName(LogLevel level) {
 }
 }  // namespace
 
-/// 单例访问
+/// 做什么：返回 Meyers 单例。
+/// 项目角色：LOG_* 宏的全局访问点。
 AsyncLogger& AsyncLogger::instance() {
   static AsyncLogger logger;
   return logger;
 }
 
-/// 启动后台日志线程
+/// 做什么：默认 INFO 级别并启动名为 Logger 的后台线程。
+/// 项目角色：进程启动后首次 LOG 前自动初始化异步写日志。
 AsyncLogger::AsyncLogger() : level_(INFO), running_(true) {
   backendThread_ = std::make_unique<Thread>([this] { backendLoop(); }, "Logger");
   backendThread_->start();
 }
 
-/// 停止后台线程并 join
+/// 做什么：停止后台循环并 join。
+/// 项目角色：进程退出前尽量刷完队列（静态析构顺序依赖实现）。
 AsyncLogger::~AsyncLogger() {
   running_ = false;
   queue_.stop();
   if (backendThread_) backendThread_->join();
 }
 
-/// 设置日志文件路径
+/// 做什么：保存日志文件路径。
+/// 项目角色：运维配置落盘路径。
 void AsyncLogger::setLogFile(const std::string& filename) {
   logFile_ = filename;
 }
 
-/// 设置最低输出级别
+/// 做什么：设置过滤阈值。
+/// 项目角色：生产/调试环境切换 verbosity。
 void AsyncLogger::setLogLevel(LogLevel level) { level_ = level; }
 
-/// 格式化一条日志并入队（可能从任意线程调用）
+/// 做什么：vsnprintf 格式化后经队列异步输出。
+/// 项目角色：全项目诊断，任意线程可调用且不阻塞 Reactor。
 void AsyncLogger::log(LogLevel level, const char* file, int line, const char* fmt,
                       ...) {
   if (level < level_) return;
@@ -83,7 +90,8 @@ void AsyncLogger::log(LogLevel level, const char* file, int line, const char* fm
   queue_.push(std::move(lineStr));
 }
 
-/// 后台线程：从队列取日志并写入控制台/文件
+/// 做什么：循环 pop 日志行写 cout/文件。
+/// 项目角色：异步日志消费者，与 IO 线程分离磁盘 IO。
 void AsyncLogger::backendLoop() {
   std::string item;
   std::ofstream file;

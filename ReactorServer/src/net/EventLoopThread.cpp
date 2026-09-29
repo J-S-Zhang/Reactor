@@ -7,6 +7,8 @@ namespace reactor {
 
 EventLoopThread::EventLoopThread() : loop_(nullptr), exiting_(false) {}
 
+/// 做什么：quit 子 loop 并 join。
+/// 项目角色：Sub Reactor 线程生命周期结束。
 EventLoopThread::~EventLoopThread() {
   exiting_ = true;
   if (loop_) {
@@ -15,7 +17,8 @@ EventLoopThread::~EventLoopThread() {
   }
 }
 
-/// 启动线程并阻塞直到子线程 EventLoop 创建完成
+/// 做什么：启动线程，cond 等待 loop_ 就绪后返回。
+/// 项目角色：主线程获取子 EventLoop 指针以注册 TcpServer。
 EventLoop* EventLoopThread::startLoop() {
   thread_ = std::make_unique<Thread>([this] { threadFunc(); }, "EventLoop");
   thread_->start();
@@ -30,7 +33,8 @@ EventLoop* EventLoopThread::startLoop() {
   return loop;
 }
 
-/// 子线程：构造 EventLoop 并 loop()，退出后清空 loop_
+/// 做什么：栈上 EventLoop + loop() 直到 quit。
+/// 项目角色：One loop per thread 模型实现。
 void EventLoopThread::threadFunc() {
   EventLoop loop;
   {

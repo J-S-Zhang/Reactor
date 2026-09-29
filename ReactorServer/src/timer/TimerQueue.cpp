@@ -12,7 +12,7 @@
 namespace reactor {
 
 namespace {
-/// 创建非阻塞 timerfd
+/// 做什么：timerfd_create 非阻塞定时器 fd。项目角色：并入 epoll 统一等待。
 int createTimerfd() {
   int timerfd = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
   if (timerfd < 0) {
@@ -21,7 +21,7 @@ int createTimerfd() {
   return timerfd;
 }
 
-/// 计算距离 when 还有多久（至少 100us）
+/// 做什么：计算距离 when 的 timespec。项目角色：timerfd_settime 参数。
 struct timespec howMuchTimeFromNow(Timestamp when) {
   int64_t microseconds =
       when.microSecondsSinceEpoch() - Timestamp::now().microSecondsSinceEpoch();
@@ -35,7 +35,7 @@ struct timespec howMuchTimeFromNow(Timestamp when) {
   return ts;
 }
 
-/// 重置 timerfd 的下一次到期时间
+/// 做什么：设置 timerfd 下次到期。项目角色：插入更早定时器时更新内核定时。
 void resetTimerfd(int timerfd, Timestamp expiration) {
   struct itimerspec newValue {};
   struct itimerspec oldValue {};
@@ -45,7 +45,7 @@ void resetTimerfd(int timerfd, Timestamp expiration) {
   }
 }
 
-/// 取出所有 <= now 的定时器并从 timers 中删除
+/// 做什么：收集并 erase 所有到期 Timer*。项目角色：handleRead 执行回调前。
 std::vector<Timer*> getExpired(TimerQueue::TimerList* timers, Timestamp now) {
   std::vector<Timer*> expired;
   auto it = timers->begin();
@@ -59,7 +59,7 @@ std::vector<Timer*> getExpired(TimerQueue::TimerList* timers, Timestamp now) {
   return expired;
 }
 
-/// 重复定时器重新插入队列
+/// 做什么：重复定时器 restart 后重新 insert。项目角色：周期 idle 超时等。
 void resetExpired(const std::vector<Timer*>& expired, Timestamp now,
                   TimerQueue::TimerList* timers) {
   for (Timer* timer : expired) {
@@ -71,7 +71,7 @@ void resetExpired(const std::vector<Timer*>& expired, Timestamp now,
 }
 }  // namespace
 
-/// 创建 timerfd 并注册到 EventLoop
+/// 做什么：创建 timerfd Channel 并 enableReading。项目角色：EventLoop 构造子系统。
 TimerQueue::TimerQueue(EventLoop* loop)
     : loop_(loop),
       timerfd_(createTimerfd()),
@@ -81,7 +81,7 @@ TimerQueue::TimerQueue(EventLoop* loop)
   timerfdChannel_->enableReading();
 }
 
-/// 注销 channel、关闭 fd、释放所有 Timer
+/// 做什么：移除 channel、close fd、delete 所有 Timer。项目角色：进程退出清理。
 TimerQueue::~TimerQueue() {
   timerfdChannel_->disableAll();
   timerfdChannel_->remove();
@@ -91,7 +91,7 @@ TimerQueue::~TimerQueue() {
   }
 }
 
-/// 线程安全：在 loop 线程中插入定时器
+/// 做什么：new Timer 并 runInLoop addTimerInLoop。项目角色：TcpConnection 空闲超时注册。
 TimerId TimerQueue::addTimer(TimerCallback cb, Timestamp when,
                              int64_t interval) {
   Timer* timer = new Timer(std::move(cb), when, interval);
@@ -99,12 +99,12 @@ TimerId TimerQueue::addTimer(TimerCallback cb, Timestamp when,
   return timer;
 }
 
-/// 线程安全：在 loop 线程中取消定时器
+/// 做什么：runInLoop cancelInLoop。项目角色：连接关闭 cancel idleTimer_。
 void TimerQueue::cancel(TimerId timerId) {
   loop_->runInLoop([this, timerId] { cancelInLoop(timerId); });
 }
 
-/// 在 IO 线程将定时器加入结构，必要时更新 timerfd
+/// 做什么：insert 并在最早变化时 resetTimerfd。项目角色：IO 线程实际注册定时器。
 void TimerQueue::addTimerInLoop(Timer* timer) {
   loop_->assertInLoopThread();
   bool earliestChanged = insert(timer);
@@ -113,7 +113,7 @@ void TimerQueue::addTimerInLoop(Timer* timer) {
   }
 }
 
-/// 在 IO 线程移除并 delete 定时器
+/// 做什么：从 timers_/activeTimers_ 删除并 delete。项目角色：取消 idle 等定时任务。
 void TimerQueue::cancelInLoop(Timer* timer) {
   loop_->assertInLoopThread();
   ActiveTimer timerPair(timer, timer->interval());
@@ -127,7 +127,7 @@ void TimerQueue::cancelInLoop(Timer* timer) {
   activeTimers_.erase(it);
 }
 
-/// timerfd 可读：执行到期任务并调度下一次 timerfd
+/// 做什么：读 timerfd、执行到期回调、调度下一次 timerfd。项目角色：与网络事件同线程的定时驱动。
 void TimerQueue::handleRead() {
   loop_->assertInLoopThread();
   uint64_t howmany;
@@ -158,7 +158,7 @@ void TimerQueue::handleRead() {
   }
 }
 
-/// 插入定时器；若新定时器最早则返回 true
+/// 做什么：插入有序 set 与 activeTimers_。项目角色：维护 O(log n) 定时结构。
 bool TimerQueue::insert(Timer* timer) {
   loop_->assertInLoopThread();
   bool earliestChanged = false;

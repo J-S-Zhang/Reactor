@@ -9,28 +9,38 @@
 
 namespace reactor {
 
-/// 日志级别，数值越大越严重
+/// 含义：日志严重程度枚举。角色：过滤与格式化输出级别。
 enum LogLevel { TRACE, DEBUG, INFO, WARN, ERROR, FATAL };
 
-/// 异步日志：前台格式化入队，后台线程写 stdout/文件
+/**
+ * @class AsyncLogger
+ * 含义：异步日志单例，前台格式化、后台写盘/控制台。
+ * 项目角色：全框架诊断入口（LOG_INFO 等宏），避免同步 IO 阻塞 Reactor IO 线程，
+ *           与 Thread + TaskQueue 组成「日志子系统」。
+ */
 class AsyncLogger : NonCopyable {
  public:
+  /// 含义：全局唯一实例。角色：宏 LOG_* 的访问点。
   static AsyncLogger& instance();
 
+  /// 含义：指定日志文件路径（追加写）。角色：运维落盘，空则仅 cout。
   void setLogFile(const std::string& filename);
+  /// 含义：设置最低输出级别。角色：生产环境降噪。
   void setLogLevel(LogLevel level);
+  /// 含义：格式化一条日志并入队。角色：任意线程可调用，不阻塞 IO。
   void log(LogLevel level, const char* file, int line, const char* fmt, ...);
 
  private:
   AsyncLogger();
   ~AsyncLogger();
+  /// 含义：后台线程循环 pop 队列并输出。角色：消费者侧主逻辑。
   void backendLoop();
 
-  LogLevel level_;                      ///< 低于此级别的日志被丢弃
-  std::string logFile_;                 ///< 非空则追加写入该文件
-  TaskQueue<std::string> queue_;        ///< 待输出的日志行队列
-  std::unique_ptr<Thread> backendThread_;  ///< 消费队列的后台线程
-  bool running_;                        ///< 后台循环是否继续
+  LogLevel level_;                       ///< 含义：级别阈值。角色：log() 内过滤。
+  std::string logFile_;                  ///< 含义：文件路径。角色：backend 打开 ofstream。
+  TaskQueue<std::string> queue_;         ///< 含义：日志行队列。角色：生产者-消费者缓冲。
+  std::unique_ptr<Thread> backendThread_;  ///< 含义：写日志专用线程。角色：与 IO 解耦。
+  bool running_;                         ///< 含义：后台是否运行。角色：析构时退出循环。
 };
 
 #define LOG_TRACE(fmt, ...) \

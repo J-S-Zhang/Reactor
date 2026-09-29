@@ -5,7 +5,8 @@
 
 namespace reactor {
 
-/// 创建非阻塞 listen socket 并 bind
+/// 做什么：createNonblockingTcp + bind + 设置 accept 读回调。
+/// 项目角色：TcpServer 内部创建监听器。
 Acceptor::Acceptor(EventLoop* loop, const InetAddress& listenAddr,
                    bool reuseport)
     : loop_(loop),
@@ -23,7 +24,8 @@ Acceptor::~Acceptor() {
   acceptChannel_.remove();
 }
 
-/// 在 IO 线程开始 listen 并关注可读（有新连接）
+/// 做什么：listen 并 enableReading。
+/// 项目角色：TcpServer::start 在 IO 线程调用。
 void Acceptor::listen() {
   loop_->assertInLoopThread();
   listenning_ = true;
@@ -31,7 +33,8 @@ void Acceptor::listen() {
   acceptChannel_.enableReading();
 }
 
-/// ET 模式：循环 accept 直到 EAGAIN
+/// 做什么：循环 accept 直到失败(EAGAIN)。
+/// 项目角色：ET 模式下一次事件接受所有就绪连接。
 void Acceptor::handleRead() {
   loop_->assertInLoopThread();
   while (true) {

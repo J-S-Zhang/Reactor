@@ -8,6 +8,8 @@
 
 namespace reactor {
 
+/// 做什么：构造 Acceptor 并绑定 newConnection 回调。
+/// 项目角色：应用层创建 server 对象（echo/chat main）。
 TcpServer::TcpServer(EventLoop* loop, const InetAddress& listenAddr,
                      const std::string& nameArg)
     : loop_(loop),
@@ -23,7 +25,8 @@ TcpServer::TcpServer(EventLoop* loop, const InetAddress& listenAddr,
       [this](int fd, const InetAddress& peer) { newConnection(fd, peer); });
 }
 
-/// 析构时清理所有连接（须在 IO 线程）
+/// 做什么：遍历 connections_ 并在 loop 中 connectDestroyed。
+/// 项目角色：须在 IO 线程析构 server 时清理 fd。
 TcpServer::~TcpServer() {
   loop_->assertInLoopThread();
   for (auto& item : connections_) {
@@ -33,12 +36,12 @@ TcpServer::~TcpServer() {
   }
 }
 
-/// 预留：多 IO 线程时使用
 void TcpServer::setThreadNum(int numThreads) {
   (void)numThreads;
 }
 
-/// 启动 worker 池并在 IO 线程 begin listen
+/// 做什么：首次 start 时启动 workerPool_ 并在 IO 线程 listen。
+/// 项目角色：main 中 server.start() 后 loop.loop()。
 void TcpServer::start() {
   if (started_.exchange(1) == 0) {
     if (workerThreadNum_ > 0) {
@@ -52,7 +55,8 @@ void TcpServer::start() {
   }
 }
 
-/// 创建 TcpConnection，设置回调并 connectEstablished
+/// 做什么：创建 TcpConnection、入 map、设回调、connectEstablished。
+/// 项目角色：Acceptor 与 TcpConnection 之间的桥梁。
 void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr) {
   loop_->assertInLoopThread();
   char buf[64];
@@ -82,11 +86,14 @@ void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr) {
   conn->connectEstablished();
 }
 
-/// 线程安全：在 loop 中移除连接
+/// 做什么：runInLoop 到 removeConnectionInLoop。
+/// 项目角色：TcpConnection closeCallback 通知 server 删连接。
 void TcpServer::removeConnection(const TcpConnectionPtr& conn) {
   loop_->runInLoop([this, conn] { removeConnectionInLoop(conn); });
 }
 
+/// 做什么：erase map 并 connectDestroyed。
+/// 项目角色：连接生命周期在 server 层的收尾。
 void TcpServer::removeConnectionInLoop(const TcpConnectionPtr& conn) {
   loop_->assertInLoopThread();
   connections_.erase(conn->name());

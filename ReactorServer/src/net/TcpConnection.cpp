@@ -11,7 +11,8 @@
 
 namespace reactor {
 
-/// 绑定 channel 回调，设置 keepalive
+/// 做什么：创建 Socket/Channel 并绑定四类 IO 回调。
+/// 项目角色：TcpServer::newConnection 包装 accept 得到的 connfd。
 TcpConnection::TcpConnection(EventLoop* loop, const std::string& name,
                              int sockfd, const InetAddress& localAddr,
                              const InetAddress& peerAddr)
@@ -32,11 +33,14 @@ TcpConnection::TcpConnection(EventLoop* loop, const std::string& name,
   socket_->setKeepAlive(true);
 }
 
+/// 做什么：记录连接销毁日志。
+/// 项目角色：shared_ptr 最后一个引用释放时 socket 由 Socket 析构 close。
 TcpConnection::~TcpConnection() {
   LOG_DEBUG("TcpConnection::~TcpConnection() %s", name_.c_str());
 }
 
-/// 线程安全发送字符串（marshal 到 IO 线程）
+/// 做什么：若已连接则 runInLoop/sendInLoop 发送字符串。
+/// 项目角色：Codec、chat 广播从业务线程安全回写客户端。
 void TcpConnection::send(const std::string& message) {
   if (state_ == kConnected) {
     if (loop_->isInLoopThread()) {
@@ -47,7 +51,8 @@ void TcpConnection::send(const std::string& message) {
   }
 }
 
-/// 线程安全发送 Buffer 内容
+/// 做什么：将 Buffer 可读区 send 并 retrieveAll。
+/// 项目角色：上层已有组包 Buffer 时使用。
 void TcpConnection::send(Buffer* buf) {
   if (state_ == kConnected) {
     if (loop_->isInLoopThread()) {
@@ -62,11 +67,14 @@ void TcpConnection::send(Buffer* buf) {
   }
 }
 
+/// 做什么：转调 sendInLoop(data,len)。
+/// 项目角色：send(string) 在 IO 线程内的实现入口。
 void TcpConnection::sendInLoop(const std::string& message) {
   sendInLoop(message.data(), message.size());
 }
 
-/// 在 IO 线程写 socket；写不完则放入 outputBuffer_ 并 enableWriting
+/// 做什么：直接 write 或缓存到 outputBuffer_ 并关注 POLLOUT。
+/// 项目角色：非阻塞写路径，Reactor 写事件驱动续写。
 void TcpConnection::sendInLoop(const void* data, size_t len) {
   loop_->assertInLoopThread();
   ssize_t nwrote = 0;
@@ -106,7 +114,8 @@ void TcpConnection::sendInLoop(const void* data, size_t len) {
   }
 }
 
-/// 优雅关闭：写尽 output 后 shutdown 写端
+/// 做什么：置 kDisconnecting 并在 IO 线程 shutdownInLoop。
+/// 项目角色：Codec 发现非法包长时关闭连接。
 void TcpConnection::shutdown() {
   if (state_ == kConnected) {
     setState(kDisconnecting);
@@ -114,6 +123,8 @@ void TcpConnection::shutdown() {
   }
 }
 
+/// 做什么：无待发数据时 shutdown(SHUT_WR)。
+/// 项目角色：TCP 半关闭，等待读端 EOF。
 void TcpConnection::shutdownInLoop() {
   loop_->assertInLoopThread();
   if (!channel_->isWriting()) {
@@ -121,7 +132,8 @@ void TcpConnection::shutdownInLoop() {
   }
 }
 
-/// 强制关闭连接
+/// 做什么：queueInLoop forceCloseInLoop。
+/// 项目角色：空闲超时 Timer 回调触发。
 void TcpConnection::forceClose() {
   if (state_ == kConnected || state_ == kDisconnecting) {
     setState(kDisconnecting);
@@ -129,6 +141,8 @@ void TcpConnection::forceClose() {
   }
 }
 
+/// 做什么：disableAll 并 closeCallback_ 通知 TcpServer。
+/// 项目角色：连接从 map 移除的触发点之一。
 void TcpConnection::forceCloseInLoop() {
   loop_->assertInLoopThread();
   if (state_ == kConnected || state_ == kDisconnecting) {
@@ -139,7 +153,8 @@ void TcpConnection::forceCloseInLoop() {
   }
 }
 
-/// accept 完成后：注册读事件并触发 connectionCallback
+/// 做什么：enableReading + connectionCallback(connected)。
+/// 项目角色：新连接进入 kConnected，chat 在此 add(conn)。
 void TcpConnection::connectEstablished() {
   loop_->assertInLoopThread();
   setState(kConnected);
@@ -149,7 +164,8 @@ void TcpConnection::connectEstablished() {
   }
 }
 
-/// 从 TcpServer 移除时：取消定时器并从 poller 删除 channel
+/// 做什么：cancel idleTimer、disableAll、channel->remove()。
+/// 项目角色：TcpServer::removeConnectionInLoop 收尾，释放 epoll 注册。
 void TcpConnection::connectDestroyed() {
   loop_->assertInLoopThread();
   if (state_ == kConnected) {
@@ -163,7 +179,8 @@ void TcpConnection::connectDestroyed() {
   channel_->remove();
 }
 
-/// ET：读尽 socket 数据，再触发 messageCallback（可进线程池）
+/// 做什么：ET 循环 readFd；数据交给 messageCallback 或 threadPool。
+/// 项目角色：字节流进入 inputBuffer_ → Codec 的入口链。
 void TcpConnection::handleRead(Timestamp receiveTime) {
   loop_->assertInLoopThread();
   int savedErrno = 0;
@@ -198,7 +215,8 @@ void TcpConnection::handleRead(Timestamp receiveTime) {
   }
 }
 
-/// 继续发送 outputBuffer_ 中的数据
+/// 做什么：write outputBuffer_，写空则 disableWriting。
+/// 项目角色：POLLOUT 就绪时续传，配合 sendInLoop 缓冲。
 void TcpConnection::handleWrite() {
   loop_->assertInLoopThread();
   if (channel_->isWriting()) {
@@ -224,7 +242,8 @@ void TcpConnection::handleWrite() {
   }
 }
 
-/// 对端关闭或 read 返回 0
+/// 做什么：置断开并 closeCallback_。
+/// 项目角色：客户端断开或 read=0，TcpServer 删连接。
 void TcpConnection::handleClose() {
   loop_->assertInLoopThread();
   setState(kDisconnected);
@@ -233,12 +252,15 @@ void TcpConnection::handleClose() {
   closeCallback_(guardThis);
 }
 
+/// 做什么：记录 socket 错误 errno。
+/// 项目角色：read/write 非 EAGAIN 错误诊断。
 void TcpConnection::handleError() {
   int err = errno;
   LOG_ERROR("TcpConnection::handleError fd=%d err=%d", channel_->fd(), err);
 }
 
-/// 注册重复定时器，超时 forceClose
+/// 做什么：addTimer 周期性检查并 forceClose。
+/// 项目角色：TcpServer setConnectionIdleTimeout 落地方案第 10 节超时管理。
 void TcpConnection::setIdleTimeout(int seconds) {
   if (seconds <= 0) return;
   Timestamp when(

@@ -10,28 +10,32 @@
 #include "base/Logger.h"
 #include "net/InetAddress.h"
 
-/// 关闭 fd
+/// 做什么：close(sockfd_)。
+/// 项目角色：TcpConnection 析构释放连接 fd。
 Socket::~Socket() {
   if (sockfd_ >= 0) {
     ::close(sockfd_);
   }
 }
 
-/// bind 到本地地址
+/// 做什么：::bind。
+/// 项目角色：Acceptor 绑定监听端口。
 void Socket::bindAddress(const InetAddress& addr) {
   if (::bind(sockfd_, addr.getSockAddr(), sizeof(struct sockaddr_in)) < 0) {
     LOG_FATAL("bind failed");
   }
 }
 
-/// 开始监听
+/// 做什么：::listen(SOMAXCONN)。
+/// 项目角色：Acceptor 进入监听状态。
 void Socket::listen() {
   if (::listen(sockfd_, SOMAXCONN) < 0) {
     LOG_FATAL("listen failed");
   }
 }
 
-/// 接受新连接（非阻塞 + CLOEXEC）
+/// 做什么：accept4 非阻塞接受并可选填充 peer。
+/// 项目角色：Acceptor 产生新 TcpConnection 的 fd。
 int Socket::accept(InetAddress* peeraddr) {
   struct sockaddr_in addr;
   std::memset(&addr, 0, sizeof addr);
@@ -44,7 +48,8 @@ int Socket::accept(InetAddress* peeraddr) {
   return connfd;
 }
 
-/// 半关闭写端
+/// 做什么：shutdown(SHUT_WR)。
+/// 项目角色：TcpConnection 优雅关闭写半部。
 void Socket::shutdownWrite() {
   if (::shutdown(sockfd_, SHUT_WR) < 0) {
     LOG_ERROR("shutdownWrite failed");
@@ -81,7 +86,8 @@ void Socket::setNonBlocking() {
   ::fcntl(sockfd_, F_SETFL, flags);
 }
 
-/// 创建 TCP 非阻塞 socket
+/// 做什么：socket(AF_INET, SOCK_STREAM|NONBLOCK|CLOEXEC)。
+/// 项目角色：创建 Reactor 使用的非阻塞 TCP fd。
 int Socket::createNonblockingTcp() {
   int sockfd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
                         IPPROTO_TCP);

@@ -17,6 +17,8 @@ const int kAdded = 1;
 const int kDeleted = 2;
 }  // namespace
 
+/// 做什么：epoll_create1 并预分配 events_。
+/// 项目角色：EventLoop 构造 poller_ 时创建 epoll 实例。
 EpollPoller::EpollPoller(EventLoop* loop)
     : Poller(loop),
       epollfd_(::epoll_create1(EPOLL_CLOEXEC)),
@@ -26,9 +28,12 @@ EpollPoller::EpollPoller(EventLoop* loop)
   }
 }
 
+/// 做什么：close(epollfd_)。
+/// 项目角色：EventLoop 析构链释放 epoll。
 EpollPoller::~EpollPoller() { ::close(epollfd_); }
 
-/// 等待就绪事件并填充 activeChannels
+/// 做什么：epoll_wait 填充 activeChannels，必要时扩容 events_。
+/// 项目角色：Reactor「等待事件」核心 syscall。
 Timestamp EpollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
   int numEvents = ::epoll_wait(epollfd_, &*events_.begin(),
                                static_cast<int>(events_.size()), timeoutMs);
@@ -49,7 +54,8 @@ Timestamp EpollPoller::poll(int timeoutMs, ChannelList* activeChannels) {
   return now;
 }
 
-/// 从 epoll_event.data.ptr 还原 Channel 并设置 revents
+/// 做什么：从 events_[i].data.ptr 取 Channel 并 setRevents。
+/// 项目角色：连接 epoll 内核回调与用户 Channel 对象。
 void EpollPoller::fillActiveChannels(int numEvents,
                                      ChannelList* activeChannels) const {
   for (int i = 0; i < numEvents; ++i) {
@@ -59,7 +65,8 @@ void EpollPoller::fillActiveChannels(int numEvents,
   }
 }
 
-/// 根据 Channel 状态 ADD/MOD/DEL
+/// 做什么：根据 Channel::index_ 决定 ADD/MOD/DEL。
+/// 项目角色：Channel::update 的最终实现。
 void EpollPoller::updateChannel(Channel* channel) {
   const int index = channel->index();
   if (index == kNew || index == kDeleted) {
@@ -86,7 +93,8 @@ void EpollPoller::updateChannel(Channel* channel) {
   }
 }
 
-/// 从 epoll 与 channels_ 移除
+/// 做什么：从 channels_ 移除并可能 EPOLL_CTL_DEL。
+/// 项目角色：TcpConnection::connectDestroyed。
 void EpollPoller::removeChannel(Channel* channel) {
   int fd = channel->fd();
   if (channels_.find(fd) == channels_.end() || channels_[fd] != channel) {
@@ -104,7 +112,8 @@ void EpollPoller::removeChannel(Channel* channel) {
   channel->setIndex(kNew);
 }
 
-/// 调用 epoll_ctl，统一开启 EPOLLET
+/// 做什么：epoll_ctl 并强制 EPOLLET。
+/// 项目角色：方案 11.2 边缘触发 + 非阻塞 IO。
 void EpollPoller::update(int operation, Channel* channel) {
   struct epoll_event event {};
   std::memset(&event, 0, sizeof event);

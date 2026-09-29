@@ -16,6 +16,8 @@ namespace reactor {
 namespace {
 thread_local EventLoop* t_loopInThisThread = nullptr;
 
+/// 做什么：创建非阻塞 eventfd。
+/// 项目角色：EventLoop 跨线程 wakeup 机制。
 int createEventfd() {
   int evtfd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
   if (evtfd < 0) {
@@ -31,7 +33,8 @@ EventLoop* EventLoop::getEventLoopOfCurrentThread() {
   return t_loopInThisThread;
 }
 
-/// 初始化 poller、timer、wakeup channel，绑定到当前线程
+/// 做什么：创建 poller、TimerQueue、wakeupChannel，绑定 thread_local。
+/// 项目角色：main 或 EventLoopThread 启动 Reactor。
 EventLoop::EventLoop()
     : looping_(false),
       quit_(false),
@@ -57,7 +60,8 @@ EventLoop::~EventLoop() {
   t_loopInThisThread = nullptr;
 }
 
-/// Reactor 主循环：poll → 处理事件 → 执行 pending 任务
+/// 做什么：while(!quit_) poll → handleEvent → doPendingFunctors。
+/// 项目角色：进程主循环，驱动全部 IO 与定时器。
 void EventLoop::loop() {
   assertInLoopThread();
   looping_ = true;
@@ -73,7 +77,8 @@ void EventLoop::loop() {
   looping_ = false;
 }
 
-/// 请求退出；若在其他线程调用则 wakeup
+/// 做什么：quit_=true，非 IO 线程则 wakeup。
+/// 项目角色：优雅停止服务器。
 void EventLoop::quit() {
   quit_ = true;
   if (!isInLoopThread()) {
@@ -81,7 +86,8 @@ void EventLoop::quit() {
   }
 }
 
-/// 在 IO 线程立即执行，否则 queueInLoop
+/// 做什么：IO 线程直接执行，否则 queueInLoop。
+/// 项目角色：保证 Channel/socket 操作线程安全。
 void EventLoop::runInLoop(Functor cb) {
   if (isInLoopThread()) {
     cb();
@@ -90,7 +96,8 @@ void EventLoop::runInLoop(Functor cb) {
   }
 }
 
-/// 将回调放入 pending 队列并必要时 wakeup
+/// 做什么：加锁追加 pending 并可能 wakeup。
+/// 项目角色：worker 线程关闭连接、send 等。
 void EventLoop::queueInLoop(Functor cb) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -119,7 +126,8 @@ void EventLoop::assertInLoopThread() {
   }
 }
 
-/// 向 eventfd 写 8 字节，使 epoll_wait 返回
+/// 做什么：write eventfd 唤醒 epoll_wait。
+/// 项目角色：跨线程 queueInLoop 的关键。
 void EventLoop::wakeup() {
   uint64_t one = 1;
   ssize_t n = ::write(wakeupFd_, &one, sizeof one);
@@ -128,7 +136,8 @@ void EventLoop::wakeup() {
   }
 }
 
-/// 读 eventfd，清空计数
+/// 做什么：read eventfd 消费计数。
+/// 项目角色：wakeupChannel 可读回调。
 void EventLoop::handleRead() {
   uint64_t one = 1;
   ssize_t n = ::read(wakeupFd_, &one, sizeof one);
@@ -137,7 +146,8 @@ void EventLoop::handleRead() {
   }
 }
 
-/// 批量执行其他线程投递的回调
+/// 做什么：swap 出 pending 并在 IO 线程逐个执行。
+/// 项目角色：每轮 Reactor 处理跨线程任务。
 void EventLoop::doPendingFunctors() {
   std::vector<Functor> functors;
   callingPendingFunctors_ = true;

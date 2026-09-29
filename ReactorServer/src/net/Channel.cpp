@@ -11,6 +11,8 @@ const int Channel::kNoneEvent = 0;
 const int Channel::kReadEvent = POLLIN | POLLPRI;
 const int Channel::kWriteEvent = POLLOUT;
 
+/// 做什么：初始化 fd 与事件状态，index_=kNew。
+/// 项目角色：每个 socket/timerfd/eventfd 绑定一个 Channel。
 Channel::Channel(EventLoop* loop, int fd)
     : loop_(loop),
       fd_(fd),
@@ -18,13 +20,16 @@ Channel::Channel(EventLoop* loop, int fd)
       revents_(0),
       index_(-1) {}
 
+/// 做什么：若仍注册事件则 WARN。
+/// 项目角色：提醒用户应先 disableAll/remove。
 Channel::~Channel() {
   if (events_ != kNoneEvent) {
     LOG_WARN("Channel::~Channel() fd=%d still registered", fd_);
   }
 }
 
-/// 根据 revents 依次触发读/写/关闭/错误回调
+/// 做什么：按 revents 顺序调用 close/error/read/write 回调。
+/// 项目角色：EventLoop 事件分发的最后一环。
 void Channel::handleEvent(Timestamp receiveTime) {
   if (revents_ & POLLNVAL) {
     LOG_WARN("Channel::handleEvent() POLLNVAL fd=%d", fd_);
@@ -43,6 +48,7 @@ void Channel::handleEvent(Timestamp receiveTime) {
   }
 }
 
+/// 做什么：events_|=读并 update。项目角色：开始 accept/read。
 void Channel::enableReading() {
   events_ |= kReadEvent;
   update();
@@ -53,6 +59,7 @@ void Channel::disableReading() {
   update();
 }
 
+/// 做什么：events_|=写并 update。项目角色：outputBuffer 有数据待写。
 void Channel::enableWriting() {
   events_ |= kWriteEvent;
   update();
@@ -63,15 +70,16 @@ void Channel::disableWriting() {
   update();
 }
 
+/// 做什么：清空 events_ 并 update。项目角色：关闭连接前注销 interest。
 void Channel::disableAll() {
   events_ = kNoneEvent;
   update();
 }
 
-/// 通知 EventLoop 更新 poller 中的 interest
+/// 做什么：调用 loop_->updateChannel。项目角色：同步 epoll 关注集。
 void Channel::update() { loop_->updateChannel(this); }
 
-/// 从 poller 移除
+/// 做什么：调用 loop_->removeChannel。项目角色：连接销毁从 epoll 删除 fd。
 void Channel::remove() { loop_->removeChannel(this); }
 
 }  // namespace reactor
