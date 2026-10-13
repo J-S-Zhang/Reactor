@@ -111,4 +111,7 @@ class TcpConnection : NonCopyable,
   TimerId idleTimer_;            ///< 含义：空闲定时器句柄。角色：cancel 于 connectDestroyed。
 };
 
+/// 含义：TcpConnection 的共享指针别名。角色：TcpServer/Codec/示例统一连接句柄类型。
+using TcpConnectionPtr = std::shared_ptr<TcpConnection>;
+
 }  // namespace reactor
