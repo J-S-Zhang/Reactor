@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "protocol/Codec.h"
+#include "protocol/Protocol.h"
 
 namespace tast {
 
