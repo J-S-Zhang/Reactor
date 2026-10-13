@@ -87,7 +87,7 @@ TimerQueue::TimerQueue(EventLoop* loop)
 /// 做什么：移除 channel、close fd、delete 所有 Timer。项目角色：进程退出清理。
 TimerQueue::~TimerQueue() {
   timerfdChannel_->disableAll();
-  loop_->removeChannel(timerfdChannel_.get());
+  timerfdChannel_->remove();
   ::close(timerfd_);
   for (const Entry& timer : timers_) {
     delete timer.second;

@@ -47,6 +47,8 @@ class Channel : NonCopyable {
   void disableWriting();
   /// 含义：取消所有订阅。角色：关闭连接前。
   void disableAll();
+  /// 含义：从 poller 移除本 fd。角色：连接/loop 析构时注销 epoll。
+  void remove();
 
   bool isWriting() const { return events_ & kWriteEvent; }
   bool isReading() const { return events_ & kReadEvent; }
@@ -65,8 +67,6 @@ class Channel : NonCopyable {
  private:
   /// 含义：请求 poller 更新 interest。角色：enable/disable 后调用。
   void update();
-  /// 含义：从 poller 移除。角色：connectDestroyed。
-  void remove();
 
   EventLoop* loop_;              ///< 含义：所属 Reactor。角色：updateChannel 路由。
   const int fd_;                 ///< 含义：关联描述符。角色：epoll 监控对象。
