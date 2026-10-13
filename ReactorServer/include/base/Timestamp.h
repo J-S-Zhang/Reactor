@@ -47,4 +47,8 @@ inline bool operator==(Timestamp lhs, Timestamp rhs) {
   return lhs.microSecondsSinceEpoch() == rhs.microSecondsSinceEpoch();
 }
 
+inline bool operator<=(Timestamp lhs, Timestamp rhs) {
+  return lhs.microSecondsSinceEpoch() <= rhs.microSecondsSinceEpoch();
+}
+
 }  // namespace reactor

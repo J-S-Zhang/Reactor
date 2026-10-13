@@ -79,7 +79,7 @@ class EventLoop : NonCopyable {
   int wakeupFd_;                             ///< 含义：eventfd。角色：跨线程唤醒。
   std::unique_ptr<Channel> wakeupChannel_;   ///< 含义：eventfd 的 Channel。角色：纳入 epoll。
 
-  ChannelList activeChannels_;    ///< 含义：本轮就绪 Channel 列表。角色：每轮 clear 后填充。
+  Poller::ChannelList activeChannels_;  ///< 含义：本轮就绪 Channel 列表。角色：每轮 clear 后填充。
   bool callingPendingFunctors_;   ///< 含义：正在跑 pending。角色：避免 wakeup 死循环。
   std::vector<Functor> pendingFunctors_;  ///< 含义：其他线程投递的回调。角色：IO 线程执行。
   std::mutex mutex_;              ///< 含义：保护 pendingFunctors_。角色：queueInLoop 加锁。

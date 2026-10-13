@@ -45,8 +45,11 @@ void resetTimerfd(int timerfd, Timestamp expiration) {
   }
 }
 
+using TimerEntry = std::pair<Timestamp, Timer*>;
+using TimerList = std::set<TimerEntry>;
+
 /// 做什么：收集并 erase 所有到期 Timer*。项目角色：handleRead 执行回调前。
-std::vector<Timer*> getExpired(TimerQueue::TimerList* timers, Timestamp now) {
+std::vector<Timer*> getExpired(TimerList* timers, Timestamp now) {
   std::vector<Timer*> expired;
   auto it = timers->begin();
   while (it != timers->end() && it->first <= now) {
@@ -54,18 +57,18 @@ std::vector<Timer*> getExpired(TimerQueue::TimerList* timers, Timestamp now) {
     ++it;
   }
   for (Timer* timer : expired) {
-    timers->erase(TimerQueue::Entry(timer->expiration(), timer));
+    timers->erase(TimerEntry(timer->expiration(), timer));
   }
   return expired;
 }
 
 /// 做什么：重复定时器 restart 后重新 insert。项目角色：周期 idle 超时等。
 void resetExpired(const std::vector<Timer*>& expired, Timestamp now,
-                  TimerQueue::TimerList* timers) {
+                  TimerList* timers) {
   for (Timer* timer : expired) {
     if (timer->repeat()) {
       timer->restart(now);
-      timers->insert(TimerQueue::Entry(timer->expiration(), timer));
+      timers->insert(TimerEntry(timer->expiration(), timer));
     }
   }
 }
@@ -84,7 +87,7 @@ TimerQueue::TimerQueue(EventLoop* loop)
 /// 做什么：移除 channel、close fd、delete 所有 Timer。项目角色：进程退出清理。
 TimerQueue::~TimerQueue() {
   timerfdChannel_->disableAll();
-  timerfdChannel_->remove();
+  loop_->removeChannel(timerfdChannel_.get());
   ::close(timerfd_);
   for (const Entry& timer : timers_) {
     delete timer.second;

@@ -12,6 +12,10 @@ namespace reactor {
 
 class EventLoop;
 class Channel;
+class Timer;
+
+/// 含义：定时器句柄类型。角色：TcpConnection::idleTimer_ 存储。
+using TimerId = Timer*;
 
 /**
  * @class TimerQueue
@@ -58,8 +62,5 @@ class TimerQueue : NonCopyable {
   bool callingExpiredTimers_;               ///< 含义：正在执行回调。角色：重入/cancel 语义预留。
   ActiveTimerSet cancelingTimers_;          ///< 含义：回调中待取消集合。角色：扩展安全 cancel。
 };
-
-/// 含义：定时器句柄类型。角色：TcpConnection::idleTimer_ 存储。
-using TimerId = Timer*;
 
 }  // namespace reactor

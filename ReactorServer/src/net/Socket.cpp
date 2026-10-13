@@ -10,6 +10,8 @@
 #include "base/Logger.h"
 #include "net/InetAddress.h"
 
+namespace reactor {
+
 /// 做什么：close(sockfd_)。
 /// 项目角色：TcpConnection 析构释放连接 fd。
 Socket::~Socket() {
