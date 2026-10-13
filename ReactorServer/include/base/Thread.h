@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>

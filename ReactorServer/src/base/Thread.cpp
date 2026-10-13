@@ -11,7 +11,7 @@ namespace reactor {
 
 namespace {
 struct ThreadData {
-  ThreadFunc func;
+  Thread::ThreadFunc func;
   std::string name;
   pid_t* tid;
 };
