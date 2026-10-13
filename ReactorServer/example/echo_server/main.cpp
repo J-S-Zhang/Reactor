@@ -10,12 +10,13 @@
 #include "protocol/Codec.h"
 
 int main() {
-  reactor::AsyncLogger::instance().setLogLevel(reactor::INFO);
+  // 压测默认：少打日志、不因空闲踢线；联调时可改回 INFO / 300
+  reactor::AsyncLogger::instance().setLogLevel(reactor::WARN);
   reactor::EventLoop loop;
   reactor::InetAddress listenAddr(8080);
   reactor::TcpServer server(&loop, listenAddr, "EchoServer");
   server.setWorkerThreadNum(4);
-  server.setConnectionIdleTimeout(300);
+  server.setConnectionIdleTimeout(0);
 
   auto codec = std::make_shared<reactor::Codec>(
       [](const reactor::TcpConnectionPtr& conn, uint16_t type,
